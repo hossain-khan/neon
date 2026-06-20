@@ -59,6 +59,7 @@ kotlin {
         commonMain.dependencies {
             api(projects.core)
             api(projects.ui)
+            implementation(projects.engineRuntime)
             api(projects.engineHighlightjs)
             implementation(projects.engineShikiNetwork)
 
