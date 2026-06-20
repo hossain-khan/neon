@@ -16,6 +16,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
+import io.ktor.client.plugins.logging.*
+
 public class ShikiNetworkEngine(
     private val config: ShikiNetworkConfig
 ) : HighlightEngine {
@@ -33,6 +35,10 @@ public class ShikiNetworkEngine(
             requestTimeoutMillis = config.timeout.inWholeMilliseconds
             connectTimeoutMillis = config.timeout.inWholeMilliseconds
             socketTimeoutMillis = config.timeout.inWholeMilliseconds
+        }
+        install(Logging) {
+            logger = Logger.DEFAULT
+            level = LogLevel.ALL
         }
     }
 
