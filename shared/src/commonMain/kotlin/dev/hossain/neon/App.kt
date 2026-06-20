@@ -19,18 +19,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.hossain.neon.core.HighlightEngineDescriptor
+import dev.hossain.neon.core.HighlightEngineId
 import dev.hossain.neon.core.HighlightTimings
 import dev.hossain.neon.core.HighlightTheme
+import dev.hossain.neon.engine.highlightjs.BuiltinHljsTheme
+import dev.hossain.neon.engine.highlightjs.HljsConfig
+import dev.hossain.neon.engine.highlightjs.HljsEngineProvider
+import dev.hossain.neon.engine.highlightjs.HljsTheme
+import dev.hossain.neon.engine.shiki.ShikiNetworkConfig
+import dev.hossain.neon.engine.shiki.ShikiNetworkEngineProvider
+import dev.hossain.neon.engine.shiki.ShikiTheme
+import dev.hossain.neon.runtime.HighlightEngineRegistry
+import dev.hossain.neon.runtime.rememberRegisteredEngine
 import dev.hossain.neon.ui.HighlightEngineProvider
 import dev.hossain.neon.ui.SyntaxHighlightedCode
-import dev.hossain.neon.ui.rememberHighlightEngine
-import dev.hossain.neon.engine.highlightjs.HljsEngineFactory
-import dev.hossain.neon.engine.highlightjs.HljsConfig
-import dev.hossain.neon.engine.highlightjs.HljsTheme
-import dev.hossain.neon.engine.highlightjs.BuiltinHljsTheme
-import dev.hossain.neon.engine.shiki.ShikiNetworkEngineFactory
-import dev.hossain.neon.engine.shiki.ShikiNetworkConfig
-import dev.hossain.neon.engine.shiki.ShikiTheme
 
 private val PredefinedSamples = mapOf(
     "kotlin" to """
@@ -127,31 +130,47 @@ private val PredefinedSamples = mapOf(
     """.trimIndent()
 )
 
+private val HljsEngineId = HljsEngineProvider.descriptor.id
+private val ShikiEngineId = ShikiNetworkEngineProvider.descriptor.id
+private val HighlightJsThemes = listOf("Atom One Dark", "Atom One Light", "Tomorrow Night", "Tomorrow")
+private val ShikiThemes = listOf("github-dark", "github-light", "one-dark-pro", "dracula", "min-light")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun App() {
     MaterialTheme(colorScheme = darkColorScheme()) {
-        val hljsEngine = rememberHighlightEngine(HljsEngineFactory, HljsConfig.Default)
-        val shikiEngine = rememberHighlightEngine(ShikiNetworkEngineFactory, ShikiNetworkConfig.Default)
+        val engineRegistry = remember {
+            HighlightEngineRegistry.of(
+                HljsEngineProvider,
+                ShikiNetworkEngineProvider,
+            )
+        }
+        val engineDescriptors = remember(engineRegistry) { engineRegistry.descriptors }
 
-        var selectedEngineName by remember { mutableStateOf("highlightjs") }
-        val currentEngine = if (selectedEngineName == "highlightjs") hljsEngine else shikiEngine
+        var selectedEngineId by remember { mutableStateOf(HljsEngineId) }
+        val currentEngine = rememberRegisteredEngine(
+            registry = engineRegistry,
+            engineId = selectedEngineId,
+        ) { engineId ->
+            when (engineId) {
+                HljsEngineId -> HljsConfig.Default
+                ShikiEngineId -> ShikiNetworkConfig.Default
+                else -> error("No config available for engine ${engineId.value}")
+            }
+        }
 
         var selectedLanguage by remember { mutableStateOf("kotlin") }
         var code by remember { mutableStateOf(PredefinedSamples["kotlin"] ?: "") }
         var showLineNumbers by remember { mutableStateOf(true) }
 
-        val highlightjsThemes = listOf("Atom One Dark", "Atom One Light", "Tomorrow Night", "Tomorrow")
-        val shikiThemes = listOf("github-dark", "github-light", "one-dark-pro", "dracula", "min-light")
-
-        var selectedThemeName by remember { mutableStateOf("Atom One Dark") }
+        var selectedThemeName by remember { mutableStateOf(defaultThemeNameFor(HljsEngineId)) }
 
         var currentTheme: HighlightTheme? by remember { mutableStateOf(null) }
         var isThemeLoading by remember { mutableStateOf(false) }
 
-        LaunchedEffect(selectedEngineName, selectedThemeName) {
+        LaunchedEffect(selectedEngineId, selectedThemeName) {
             isThemeLoading = true
-            currentTheme = if (selectedEngineName == "highlightjs") {
+            currentTheme = if (isHighlightJsEngine(selectedEngineId)) {
                 val builtinEnum = when (selectedThemeName) {
                     "Atom One Dark" -> BuiltinHljsTheme.ATOM_ONE_DARK
                     "Atom One Light" -> BuiltinHljsTheme.ATOM_ONE_LIGHT
@@ -215,15 +234,14 @@ fun App() {
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 ControlPanelContent(
-                                    selectedEngineName = selectedEngineName,
-                                    onEngineSelected = { engine ->
-                                        selectedEngineName = engine
-                                        selectedThemeName = if (engine == "highlightjs") "Atom One Dark" else "github-dark"
+                                    engineDescriptors = engineDescriptors,
+                                    selectedEngineId = selectedEngineId,
+                                    onEngineSelected = { engineId ->
+                                        selectedEngineId = engineId
+                                        selectedThemeName = defaultThemeNameFor(engineId)
                                     },
                                     selectedThemeName = selectedThemeName,
                                     onThemeSelected = { selectedThemeName = it },
-                                    highlightjsThemes = highlightjsThemes,
-                                    shikiThemes = shikiThemes,
                                     selectedLanguage = selectedLanguage,
                                     onLanguageSelected = { lang ->
                                         selectedLanguage = lang
@@ -280,15 +298,14 @@ fun App() {
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 ControlPanelContent(
-                                    selectedEngineName = selectedEngineName,
-                                    onEngineSelected = { engine ->
-                                        selectedEngineName = engine
-                                        selectedThemeName = if (engine == "highlightjs") "Atom One Dark" else "github-dark"
+                                    engineDescriptors = engineDescriptors,
+                                    selectedEngineId = selectedEngineId,
+                                    onEngineSelected = { engineId ->
+                                        selectedEngineId = engineId
+                                        selectedThemeName = defaultThemeNameFor(engineId)
                                     },
                                     selectedThemeName = selectedThemeName,
                                     onThemeSelected = { selectedThemeName = it },
-                                    highlightjsThemes = highlightjsThemes,
-                                    shikiThemes = shikiThemes,
                                     selectedLanguage = selectedLanguage,
                                     onLanguageSelected = { lang ->
                                         selectedLanguage = lang
@@ -331,12 +348,11 @@ fun App() {
 
 @Composable
 private fun ControlPanelContent(
-    selectedEngineName: String,
-    onEngineSelected: (String) -> Unit,
+    engineDescriptors: List<HighlightEngineDescriptor>,
+    selectedEngineId: HighlightEngineId,
+    onEngineSelected: (HighlightEngineId) -> Unit,
     selectedThemeName: String,
     onThemeSelected: (String) -> Unit,
-    highlightjsThemes: List<String>,
-    shikiThemes: List<String>,
     selectedLanguage: String,
     onLanguageSelected: (String) -> Unit,
     showLineNumbers: Boolean,
@@ -353,12 +369,11 @@ private fun ControlPanelContent(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        val engines = listOf("highlightjs" to "Highlight.js", "shiki-network" to "Shiki Net")
-        engines.forEach { (id, label) ->
+        engineDescriptors.forEach { descriptor ->
             FilterChip(
-                selected = selectedEngineName == id,
-                onClick = { onEngineSelected(id) },
-                label = { Text(label) },
+                selected = selectedEngineId == descriptor.id,
+                onClick = { onEngineSelected(descriptor.id) },
+                label = { Text(descriptor.displayName) },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -382,7 +397,7 @@ private fun ControlPanelContent(
 
     Text("Theme Selection", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        val themes = if (selectedEngineName == "highlightjs") highlightjsThemes else shikiThemes
+        val themes = themeNamesFor(selectedEngineId)
         themes.forEach { theme ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -469,6 +484,16 @@ private fun ControlPanelContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+private fun isHighlightJsEngine(engineId: HighlightEngineId): Boolean = engineId == HljsEngineId
+
+private fun defaultThemeNameFor(engineId: HighlightEngineId): String {
+    return if (isHighlightJsEngine(engineId)) HighlightJsThemes.first() else ShikiThemes.first()
+}
+
+private fun themeNamesFor(engineId: HighlightEngineId): List<String> {
+    return if (isHighlightJsEngine(engineId)) HighlightJsThemes else ShikiThemes
 }
 
 @Composable
