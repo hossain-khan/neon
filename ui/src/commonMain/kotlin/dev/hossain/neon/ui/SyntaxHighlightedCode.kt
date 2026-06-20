@@ -188,27 +188,21 @@ public fun SyntaxHighlightedCode(
                         }
                     }
                 } else {
-                    AnimatedContent(
-                        targetState = highlighted,
-                        transitionSpec = { fadeIn() togetherWith fadeOut() },
-                        label = "syntax-highlight-fade",
-                    ) { animatedHighlighted ->
-                        SelectionContainer {
-                            if (showLineNumbers) {
-                                LineNumberedCode(
-                                    code = code,
-                                    highlighted = animatedHighlighted,
-                                    codeTextStyle = themedCodeStyle,
-                                    lineNumTextStyle = themedLineNumStyle,
-                                    style = style,
-                                )
-                            } else {
-                                Text(
-                                    text = animatedHighlighted ?: AnnotatedString(code),
-                                    modifier = Modifier.padding(style.padding),
-                                    style = themedCodeStyle,
-                                )
-                            }
+                    SelectionContainer {
+                        if (showLineNumbers) {
+                            LineNumberedCode(
+                                code = code,
+                                highlighted = highlighted,
+                                codeTextStyle = themedCodeStyle,
+                                lineNumTextStyle = themedLineNumStyle,
+                                style = style,
+                            )
+                        } else {
+                            Text(
+                                text = highlighted ?: AnnotatedString(code),
+                                modifier = Modifier.padding(style.padding),
+                                style = themedCodeStyle,
+                            )
                         }
                     }
                 }

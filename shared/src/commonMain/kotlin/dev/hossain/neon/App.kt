@@ -146,11 +146,6 @@ fun App() {
 
         var selectedThemeName by remember { mutableStateOf("Atom One Dark") }
 
-        // Adjust theme name selection when engine changes
-        LaunchedEffect(selectedEngineName) {
-            selectedThemeName = if (selectedEngineName == "highlightjs") "Atom One Dark" else "github-dark"
-        }
-
         var currentTheme: HighlightTheme? by remember { mutableStateOf(null) }
         var isThemeLoading by remember { mutableStateOf(false) }
 
@@ -221,7 +216,10 @@ fun App() {
                             ) {
                                 ControlPanelContent(
                                     selectedEngineName = selectedEngineName,
-                                    onEngineSelected = { selectedEngineName = it },
+                                    onEngineSelected = { engine ->
+                                        selectedEngineName = engine
+                                        selectedThemeName = if (engine == "highlightjs") "Atom One Dark" else "github-dark"
+                                    },
                                     selectedThemeName = selectedThemeName,
                                     onThemeSelected = { selectedThemeName = it },
                                     highlightjsThemes = highlightjsThemes,
@@ -283,7 +281,10 @@ fun App() {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 ControlPanelContent(
                                     selectedEngineName = selectedEngineName,
-                                    onEngineSelected = { selectedEngineName = it },
+                                    onEngineSelected = { engine ->
+                                        selectedEngineName = engine
+                                        selectedThemeName = if (engine == "highlightjs") "Atom One Dark" else "github-dark"
+                                    },
                                     selectedThemeName = selectedThemeName,
                                     onThemeSelected = { selectedThemeName = it },
                                     highlightjsThemes = highlightjsThemes,

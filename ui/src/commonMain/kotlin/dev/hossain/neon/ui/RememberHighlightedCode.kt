@@ -42,10 +42,6 @@ public fun rememberHighlightedCode(
         engine.highlight(code, language, theme)
             .onSuccess { result ->
                 val annotated = tokensToAnnotatedString(result.tokens)
-                println("[DEBUG] Highlight success! Tokens count: ${result.tokens.size}, Annotated length: ${annotated.length}")
-                if (annotated.length > 0) {
-                    println("[DEBUG] First 100 chars of annotated text: '${annotated.text.take(100)}'")
-                }
                 state.value = annotated
                 latestCallback.value?.invoke(result)
             }.onFailure { error ->
