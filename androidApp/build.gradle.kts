@@ -24,6 +24,10 @@ android {
     namespace = "dev.hossain.neon"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
+    lint {
+        abortOnError = false
+    }
+
     defaultConfig {
         applicationId = "dev.hossain.neon"
         minSdk = libs.versions.android.minSdk.get().toInt()

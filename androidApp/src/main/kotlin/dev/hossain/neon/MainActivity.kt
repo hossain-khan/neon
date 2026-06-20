@@ -11,6 +11,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        dev.hossain.neon.engine.highlightjs.NeonAndroidContext.applicationContext = this.applicationContext
 
         setContent {
             App()
