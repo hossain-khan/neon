@@ -13,6 +13,12 @@ kotlin {
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
+        iosTarget.binaries.all {
+            val targetName = target.konanTarget.name
+            freeCompilerArgs += listOf(
+                "-Xoverride-konan-properties=osVersionMin.$targetName=16.0"
+            )
+        }
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
