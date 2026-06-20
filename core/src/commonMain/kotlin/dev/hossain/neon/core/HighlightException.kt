@@ -22,7 +22,7 @@ public sealed class HighlightException(
 
     public class NetworkError(
         cause: Throwable,
-    ) : HighlightException("Network request failed", cause)
+    ) : HighlightException("Network request failed: ${cause.message ?: cause::class.simpleName}", cause)
 
     public class JavaScriptEvaluationFailed(
         cause: Throwable,
