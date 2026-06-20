@@ -13,6 +13,12 @@ kotlin {
         iosArm64(),
         iosSimulatorArm64()
     ).forEach { iosTarget ->
+        iosTarget.binaries.all {
+            val targetName = target.konanTarget.name
+            freeCompilerArgs += listOf(
+                "-Xoverride-konan-properties=osVersionMin.$targetName=16.0"
+            )
+        }
         iosTarget.binaries.framework {
             baseName = "NeonEngineHighlightjs"
             isStatic = true
@@ -34,7 +40,7 @@ kotlin {
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
         compilerOptions {
-            jvmTarget = JvmTarget.JVM_11
+            jvmTarget = JvmTarget.JVM_21
         }
         androidResources {
             enable = true
