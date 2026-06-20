@@ -393,6 +393,53 @@ public data class HljsConfig(
 public enum class JsEngineType { AUTO, WEBVIEW, ZIPLINE, JSCONTEXT, GRAALJS }
 ```
 
+**Theme:**
+
+`HljsTheme` stores a color map as hex strings (not Compose `SpanStyle`) to keep the engine Compose-free.
+The `HljsEngine` uses this map when converting highlight.js HTML output into `HighlightToken` lists.
+
+```kotlin
+package dev.hossain.neon.engine.highlightjs
+
+public class HljsTheme private constructor(
+    override val name: String,
+    override val isDark: Boolean,
+    internal val colorMap: Map<String, TokenStyleData>,
+) : HighlightTheme {
+    public companion object {
+        public fun fromCss(css: String, name: String, isDark: Boolean = false): HljsTheme
+        public fun builtin(name: BuiltinHljsTheme): HljsTheme
+    }
+}
+
+/**
+ * Platform-neutral style data extracted from CSS.
+ * Used by HljsEngine to populate HighlightToken fields.
+ */
+internal data class TokenStyleData(
+    val color: String? = null,
+    val background: String? = null,
+    val fontWeight: TokenFontWeight? = null,
+    val fontStyle: TokenFontStyle? = null,
+    val isUnderline: Boolean = false,
+)
+```
+
+**Factory:**
+
+```kotlin
+package dev.hossain.neon.engine.highlightjs
+
+public class HljsEngineFactory : HighlightEngineFactory {
+    override val name: String = "highlightjs"
+    override fun isAvailable(): Boolean = true
+    override suspend fun create(config: EngineConfig): HighlightEngine {
+        require(config is HljsConfig) { "Expected HljsConfig, got ${config::class}" }
+        return HljsEngine(config)
+    }
+}
+```
+
 **Dependencies:**
 
 - `core` (api)
@@ -482,6 +529,21 @@ public class ShikiTheme private constructor(
     public companion object {
         public fun builtin(name: String): ShikiTheme
         // e.g., "github-dark", "dracula", "one-dark-pro"
+    }
+}
+```
+
+**Factory:**
+
+```kotlin
+package dev.hossain.neon.engine.shiki
+
+public class ShikiNetworkEngineFactory : HighlightEngineFactory {
+    override val name: String = "shiki-network"
+    override fun isAvailable(): Boolean = true
+    override suspend fun create(config: EngineConfig): HighlightEngine {
+        require(config is ShikiNetworkConfig) { "Expected ShikiNetworkConfig, got ${config::class}" }
+        return ShikiNetworkEngine(config)
     }
 }
 ```
@@ -752,7 +814,75 @@ kotlin {
 }
 ```
 
-### 8.6 androidApp/build.gradle.kts
+### 8.6 engine-shiki-network/build.gradle.kts
+
+```kotlin
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+plugins {
+    alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.androidMultiplatformLibrary)
+    alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.dokka)
+    alias(libs.plugins.mavenPublish)
+    alias(libs.plugins.kotlinter)
+}
+
+kotlin {
+    androidTarget {
+        publishLibraryVariants("release")
+    }
+    listOf(
+        iosX64(),
+        iosArm64(),
+        iosSimulatorArm64()
+    ).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "NeonEngineShikiNetwork"
+            isStatic = true
+        }
+    }
+    jvm("desktop")
+
+    androidLibrary {
+        namespace = "dev.hossain.neon.engine.shiki"
+        compileSdk = libs.versions.android.compileSdk.get().toInt()
+        minSdk = libs.versions.android.minSdk.get().toInt()
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_11
+        }
+    }
+
+    sourceSets {
+        commonMain.dependencies {
+            api(projects.core)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.json)
+        }
+        androidMain.dependencies {
+            implementation(libs.ktor.client.okhttp)
+        }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
+        }
+        val desktopMain by getting {
+            dependencies {
+                implementation(libs.ktor.client.cio)
+                implementation(libs.kotlinx.coroutines.swing)
+            }
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
+            implementation(libs.truth)
+        }
+    }
+}
+```
+
+### 8.7 androidApp/build.gradle.kts
 
 ```kotlin
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -798,7 +928,7 @@ android {
 }
 ```
 
-### 8.7 desktopApp/build.gradle.kts
+### 8.8 desktopApp/build.gradle.kts
 
 ```kotlin
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
@@ -831,7 +961,7 @@ compose.desktop {
 }
 ```
 
-### 8.8 gradle/libs.versions.toml
+### 8.9 gradle/libs.versions.toml
 
 ```toml
 [versions]
@@ -887,7 +1017,7 @@ kotlinter = { id = "org.jmailen.kotlinter", version.ref = "kotlinter" }
 mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "mavenPublish" }
 ```
 
-### 8.9 gradle.properties
+### 8.10 gradle.properties
 
 ```properties
 kotlin.code.style=official
@@ -1051,7 +1181,6 @@ Files to port from `compose-highlight` to `neon`:
 |---------------------------|-------------------|---------|
 | `engine/HighlightException.kt` | `core/commonMain/.../core/HighlightException.kt` | Rename variants, update package |
 | `engine/HighlightTimings.kt` | `core/commonMain/.../core/HighlightTimings.kt` | Use `kotlin.time.Duration` |
-| `engine/HtmlHighlightResult.kt` | `core/commonMain/.../core/HtmlHighlightResult.kt` | Update package |
 | `engine/HljsSelectors.kt` | `core/commonMain/.../core/HljsSelectors.kt` | Update package |
 | `engine/HighlightLanguage.kt` | `core/commonMain/.../core/HighlightLanguage.kt` | Replace `java.util.Locale` with `kotlin.text` |
 | `engine/internal/JsStringEscape.kt` | `core/commonMain/.../core/internal/JsStringEscape.kt` | Replace `Character.toCodePoint()` and `StringBuilder.appendCodePoint()` with pure Kotlin |
@@ -1062,9 +1191,7 @@ Files to port from `compose-highlight` to `neon`:
 
 | Source (compose-highlight) | Destination (neon) | Changes |
 |---------------------------|-------------------|---------|
-| `engine/internal/HtmlParser.kt` | `ui/commonMain/.../ui/internal/HtmlParser.kt` | Refactor to emit `HighlightToken` instead of `AnnotatedString` |
 | `engine/internal/HtmlToAnnotatedString.kt` | `ui/commonMain/.../ui/internal/TokensToAnnotatedString.kt` | New mapper from `List<HighlightToken>` to `AnnotatedString` |
-| `engine/internal/ThemeParser.kt` | `engine-highlightjs/commonMain/.../internal/ThemeParser.kt` | Remove `Context` parameter, accept CSS string directly |
 | `ui/SyntaxHighlightedCode.kt` | `ui/commonMain/.../ui/SyntaxHighlightedCode.kt` | Remove `android.content.ClipData`, use expect/actual clipboard |
 | `ui/SyntaxHighlightedCodeDefaults.kt` | `ui/commonMain/.../ui/SyntaxHighlightedCodeDefaults.kt` | Replace `R.drawable` with `compose.resources` |
 | `ui/SyntaxHighlightedTextEditor.kt` | `ui/commonMain/.../ui/SyntaxHighlightedTextEditor.kt` | Update package |
@@ -1077,7 +1204,14 @@ Files to port from `compose-highlight` to `neon`:
 | `ui/internal/LocalHighlightEngine.kt` | `ui/commonMain/.../ui/internal/LocalHighlightEngine.kt` | Update package |
 | `ui/internal/ApplySnapshotSpans.kt` | `ui/commonMain/.../ui/internal/ApplySnapshotSpans.kt` | Update package |
 
-### 12.3 Android-specific -> `engine-highlightjs/androidMain`
+### 12.3 Compose-only -> `engine-highlightjs/commonMain`
+
+| Source (compose-highlight) | Destination (neon) | Changes |
+|---------------------------|-------------------|---------|
+| `engine/internal/HtmlParser.kt` | `engine-highlightjs/commonMain/.../internal/HtmlParser.kt` | Refactor to emit `List<HighlightToken>` instead of `AnnotatedString`; use `HljsTheme.colorMap` (hex strings) for styling |
+| `engine/internal/ThemeParser.kt` | `engine-highlightjs/commonMain/.../internal/ThemeParser.kt` | Remove `Context` parameter, accept CSS string directly; output `Map<String, TokenStyleData>` instead of `Map<String, SpanStyle>` |
+
+### 12.4 Android-specific -> `engine-highlightjs/androidMain`
 
 | Source (compose-highlight) | Destination (neon) | Changes |
 |---------------------------|-------------------|---------|
@@ -1085,7 +1219,7 @@ Files to port from `compose-highlight` to `neon`:
 | `engine/HighlightTheme.kt` | `engine-highlightjs/commonMain/.../HljsTheme.kt` | Remove `Context`, use CSS string input |
 | `engine/internal/WebViewManager.kt` | `engine-highlightjs/androidMain/.../internal/WebViewJsRuntime.kt` | Rename, implement `JsRuntime` interface |
 
-### 12.4 New Files to Create
+### 12.5 New Files to Create
 
 | File | Location | Purpose |
 |------|----------|---------|
@@ -1100,15 +1234,18 @@ Files to port from `compose-highlight` to `neon`:
 | `JSContextJsRuntime.kt` (actual) | `engine-highlightjs/iosMain/.../internal/` | iOS JavaScriptCore impl |
 | `ZiplineJsRuntime.kt` (actual) | `engine-highlightjs/desktopMain/.../internal/` | Desktop Zipline impl |
 | `HljsEngine.kt` | `engine-highlightjs/commonMain/.../` | Highlight.js engine impl |
+| `HljsEngineFactory.kt` | `engine-highlightjs/commonMain/.../` | Factory implementing `HighlightEngineFactory` |
 | `HljsTheme.kt` | `engine-highlightjs/commonMain/.../` | Highlight.js theme impl |
 | `HljsConfig.kt` | `engine-highlightjs/commonMain/.../` | Config data class |
 | `ShikiNetworkEngine.kt` | `engine-shiki-network/commonMain/.../` | Shiki engine impl |
+| `ShikiNetworkEngineFactory.kt` | `engine-shiki-network/commonMain/.../` | Factory implementing `HighlightEngineFactory` |
 | `ShikiTheme.kt` | `engine-shiki-network/commonMain/.../` | Shiki theme impl |
 | `ShikiNetworkConfig.kt` | `engine-shiki-network/commonMain/.../` | Config data class |
 | `ShikiApiClient.kt` | `engine-shiki-network/commonMain/.../internal/` | Ktor HTTP client |
 | `tokensToAnnotatedString.kt` | `ui/commonMain/.../ui/` | Token-to-AnnotatedString mapper |
+| `TokenStyleData.kt` | `engine-highlightjs/commonMain/.../internal/` | Internal style data (hex strings) for HljsTheme color map |
 
-### 12.5 Test File Mapping
+### 12.6 Test File Mapping
 
 | Source (compose-highlight) | Destination (neon) |
 |---------------------------|-------------------|
