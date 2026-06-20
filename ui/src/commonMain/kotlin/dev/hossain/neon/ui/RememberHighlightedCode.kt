@@ -45,7 +45,11 @@ public fun rememberHighlightedCode(
                 state.value = annotated
                 latestCallback.value?.invoke(result)
             }.onFailure { error ->
-                (error as? HighlightException)?.let { latestErrorCallback.value?.invoke(it) }
+                val neonException = when (error) {
+                    is HighlightException -> error
+                    else -> HighlightException.NetworkError(error)
+                }
+                latestErrorCallback.value?.invoke(neonException)
             }
     }
 
@@ -85,7 +89,11 @@ public fun rememberHighlightedCodeBothThemes(
                 state.value = themedResult
                 latestCallback.value?.invoke(themedResult)
             }.onFailure { error ->
-                (error as? HighlightException)?.let { latestErrorCallback.value?.invoke(it) }
+                val neonException = when (error) {
+                    is HighlightException -> error
+                    else -> HighlightException.NetworkError(error)
+                }
+                latestErrorCallback.value?.invoke(neonException)
             }
     }
 

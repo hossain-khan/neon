@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.Ignore
 
 class ShikiNetworkEngineTest {
 
@@ -112,5 +113,24 @@ class ShikiNetworkEngineTest {
         )
         assertEquals(expectedLightTokens, result.light.tokens)
         assertEquals(expectedDarkTokens, result.dark.tokens)
+    }
+
+    @Ignore
+    @Test
+    fun testRealHighlight() = runTest {
+        val config = ShikiNetworkConfig.Default
+        val engine = ShikiNetworkEngine(config)
+        engine.initSupportedLanguages()
+        println("Supported languages from real server: ${engine.supportedLanguages}")
+        val result = engine.highlight("val x = 42", "kotlin", ShikiTheme.builtin("github-dark"))
+        if (result.isFailure) {
+            val err = result.exceptionOrNull()
+            println("Real highlight failed with: $err")
+            err?.printStackTrace()
+            throw err!!
+        }
+        val highlightResult = result.getOrThrow()
+        println("Real highlight result tokens: ${highlightResult.tokens.size}")
+        assertTrue(highlightResult.tokens.isNotEmpty())
     }
 }
