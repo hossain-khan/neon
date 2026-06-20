@@ -36,9 +36,11 @@ public class ShikiNetworkEngine(
             connectTimeoutMillis = config.timeout.inWholeMilliseconds
             socketTimeoutMillis = config.timeout.inWholeMilliseconds
         }
-        install(Logging) {
-            logger = Logger.DEFAULT
-            level = LogLevel.ALL
+        if (config.enableLogging) {
+            install(Logging) {
+                logger = Logger.DEFAULT
+                level = LogLevel.INFO
+            }
         }
     }
 
@@ -70,7 +72,7 @@ public class ShikiNetworkEngine(
                 code = code,
                 language = language,
                 theme = theme.name,
-                debug = true
+                debug = config.sendDebugMetadata
             ))
         }
 
@@ -135,7 +137,7 @@ public class ShikiNetworkEngine(
                 language = language,
                 darkTheme = darkTheme.name,
                 lightTheme = lightTheme.name,
-                debug = true
+                debug = config.sendDebugMetadata
             ))
         }
 

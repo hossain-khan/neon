@@ -4,14 +4,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import dev.hossain.neon.core.EngineConfig
 import dev.hossain.neon.core.HighlightEngine
 import dev.hossain.neon.core.HighlightEngineFactory
+import dev.hossain.neon.core.HighlightException
 import dev.hossain.neon.core.HighlightLanguageInfo
 import dev.hossain.neon.core.HighlightResult
 import dev.hossain.neon.core.HighlightTimings
@@ -46,7 +44,9 @@ public fun rememberHighlightEngine(
             val engine = factory.create(config)
             delegatingEngine.setDelegate(engine)
         } catch (e: Exception) {
-            // Log or handle factory creation failure
+            val failure = e as? HighlightException
+                ?: HighlightException.EngineInitializationFailed(factory.name, e)
+            delegatingEngine.setFailure(failure)
         }
     }
     DisposableEffect(delegatingEngine) {
@@ -59,9 +59,18 @@ public fun rememberHighlightEngine(
 
 private class DelegatingHighlightEngine(override val name: String) : HighlightEngine {
     private var delegate: HighlightEngine? = null
+    private var failure: HighlightException? = null
 
     fun setDelegate(engine: HighlightEngine) {
+        delegate?.close()
         this.delegate = engine
+        this.failure = null
+    }
+
+    fun setFailure(error: HighlightException) {
+        delegate?.close()
+        delegate = null
+        failure = error
     }
 
     override val supportedLanguages: Set<String>
@@ -76,19 +85,7 @@ private class DelegatingHighlightEngine(override val name: String) : HighlightEn
         return if (d != null) {
             d.highlight(code, language, theme)
         } else {
-            Result.success(
-                HighlightResult(
-                    tokens = listOf(HighlightToken(text = code)),
-                    language = language,
-                    timings = HighlightTimings(
-                        jsBridge = Duration.ZERO,
-                        jsonUnescape = Duration.ZERO,
-                        htmlParse = Duration.ZERO,
-                        themeParse = Duration.ZERO,
-                        total = Duration.ZERO
-                    )
-                )
-            )
+            Result.failure(currentFailure())
         }
     }
 
@@ -102,31 +99,26 @@ private class DelegatingHighlightEngine(override val name: String) : HighlightEn
         return if (d != null) {
             d.highlightBoth(code, language, lightTheme, darkTheme)
         } else {
-            val fallback = HighlightResult(
-                tokens = listOf(HighlightToken(text = code)),
-                language = language,
-                timings = HighlightTimings(
-                    jsBridge = Duration.ZERO,
-                    jsonUnescape = Duration.ZERO,
-                    htmlParse = Duration.ZERO,
-                    themeParse = Duration.ZERO,
-                    total = Duration.ZERO
-                )
-            )
-            Result.success(ThemedHighlightResult(fallback, fallback))
+            Result.failure(currentFailure())
         }
     }
 
     override suspend fun autoDetectLanguage(code: String): Result<String> {
-        return delegate?.autoDetectLanguage(code) ?: Result.success("plaintext")
+        return delegate?.autoDetectLanguage(code) ?: Result.failure(currentFailure())
     }
 
     override suspend fun listLanguages(): List<HighlightLanguageInfo> {
-        return delegate?.listLanguages() ?: emptyList()
+        val d = delegate ?: throw currentFailure()
+        return d.listLanguages()
     }
 
     override fun close() {
         delegate?.close()
         delegate = null
+        failure = null
+    }
+
+    private fun currentFailure(): HighlightException {
+        return failure ?: HighlightException.EngineNotReady(name)
     }
 }

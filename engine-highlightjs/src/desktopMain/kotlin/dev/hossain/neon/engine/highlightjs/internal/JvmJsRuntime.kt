@@ -17,20 +17,13 @@ internal actual class JsRuntime actual constructor() : AutoCloseable {
                 val manager = ScriptEngineManager()
                 val jsEngine = manager.getEngineByName("JavaScript")
                     ?: manager.getEngineByName("js")
-                    ?: throw Exception("No JSR-223 JavaScript engine found on the classpath. Add org.graalvm.js:js and org.graalvm.js:js-scriptengine dependencies to run Highlight.js on Desktop JVM.")
+                    ?: throw HighlightException.UnsupportedPlatform(
+                        engine = "highlightjs",
+                        platform = "desktop",
+                        details = "No JSR-223 JavaScript engine found. Add a JavaScript engine such as GraalJS to the runtime classpath."
+                    )
 
-                val scripts = mutableListOf<String>()
-                var start = 0
-                while (true) {
-                    val s = htmlContent.indexOf("<script>", start)
-                    if (s == -1) break
-                    val e = htmlContent.indexOf("</script>", s)
-                    if (e == -1) break
-                    scripts.add(htmlContent.substring(s + 8, e))
-                    start = e + 9
-                }
-
-                for (script in scripts) {
+                for (script in extractInlineScripts(htmlContent)) {
                     jsEngine.eval(script)
                 }
 

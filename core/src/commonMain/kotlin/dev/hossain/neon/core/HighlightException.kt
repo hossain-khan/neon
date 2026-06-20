@@ -10,6 +10,24 @@ public sealed class HighlightException(
         cause: Throwable,
     ) : HighlightException("Engine '$engine' initialization failed", cause)
 
+    public class EngineNotReady(
+        public val engine: String,
+    ) : HighlightException("Engine '$engine' is not ready")
+
+    public class UnsupportedPlatform(
+        public val engine: String,
+        public val platform: String,
+        details: String? = null,
+    ) : HighlightException(
+        buildString {
+            append("Engine '$engine' is not supported on platform '$platform'")
+            if (!details.isNullOrBlank()) {
+                append(": ")
+                append(details)
+            }
+        }
+    )
+
     public class UnsupportedLanguage(
         public val language: String,
         public val engine: String,
