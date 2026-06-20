@@ -4,7 +4,7 @@ import dev.hossain.neon.core.EngineConfig
 import dev.hossain.neon.core.HighlightEngine
 import dev.hossain.neon.core.HighlightEngineFactory
 
-public class ShikiNetworkEngineFactory : HighlightEngineFactory {
+public object ShikiNetworkEngineFactory : HighlightEngineFactory {
     override val name: String = "shiki-network"
 
     override fun isAvailable(): Boolean {

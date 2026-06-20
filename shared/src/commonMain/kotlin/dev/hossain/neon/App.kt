@@ -132,7 +132,7 @@ private val PredefinedSamples = mapOf(
 fun App() {
     MaterialTheme(colorScheme = darkColorScheme()) {
         val hljsEngine = rememberHighlightEngine(HljsEngineFactory, HljsConfig.Default)
-        val shikiEngine = rememberHighlightEngine(ShikiNetworkEngineFactory(), ShikiNetworkConfig.Default)
+        val shikiEngine = rememberHighlightEngine(ShikiNetworkEngineFactory, ShikiNetworkConfig.Default)
 
         var selectedEngineName by remember { mutableStateOf("highlightjs") }
         val currentEngine = if (selectedEngineName == "highlightjs") hljsEngine else shikiEngine
