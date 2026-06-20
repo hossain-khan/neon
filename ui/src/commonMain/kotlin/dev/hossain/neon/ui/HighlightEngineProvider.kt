@@ -1,0 +1,132 @@
+package dev.hossain.neon.ui
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
+import dev.hossain.neon.core.EngineConfig
+import dev.hossain.neon.core.HighlightEngine
+import dev.hossain.neon.core.HighlightEngineFactory
+import dev.hossain.neon.core.HighlightLanguageInfo
+import dev.hossain.neon.core.HighlightResult
+import dev.hossain.neon.core.HighlightTimings
+import dev.hossain.neon.core.HighlightToken
+import dev.hossain.neon.core.ThemedHighlightResult
+import kotlin.time.Duration
+
+public val LocalHighlightEngine: androidx.compose.runtime.ProvidableCompositionLocal<HighlightEngine> = staticCompositionLocalOf {
+    error("No HighlightEngine provided. Wrap with HighlightEngineProvider {}")
+}
+
+@Composable
+public fun HighlightEngineProvider(
+    engine: HighlightEngine,
+    content: @Composable () -> Unit,
+) {
+    CompositionLocalProvider(
+        LocalHighlightEngine provides engine
+    ) {
+        content()
+    }
+}
+
+@Composable
+public fun rememberHighlightEngine(
+    factory: HighlightEngineFactory,
+    config: EngineConfig,
+): HighlightEngine {
+    val delegatingEngine = remember(factory, config) { DelegatingHighlightEngine(factory.name) }
+    LaunchedEffect(factory, config) {
+        try {
+            val engine = factory.create(config)
+            delegatingEngine.setDelegate(engine)
+        } catch (e: Exception) {
+            // Log or handle factory creation failure
+        }
+    }
+    DisposableEffect(delegatingEngine) {
+        onDispose {
+            delegatingEngine.close()
+        }
+    }
+    return delegatingEngine
+}
+
+private class DelegatingHighlightEngine(override val name: String) : HighlightEngine {
+    private var delegate: HighlightEngine? = null
+
+    fun setDelegate(engine: HighlightEngine) {
+        this.delegate = engine
+    }
+
+    override val supportedLanguages: Set<String>
+        get() = delegate?.supportedLanguages ?: emptySet()
+
+    override suspend fun highlight(
+        code: String,
+        language: String,
+        theme: dev.hossain.neon.core.HighlightTheme,
+    ): Result<HighlightResult> {
+        val d = delegate
+        return if (d != null) {
+            d.highlight(code, language, theme)
+        } else {
+            Result.success(
+                HighlightResult(
+                    tokens = listOf(HighlightToken(text = code)),
+                    language = language,
+                    timings = HighlightTimings(
+                        jsBridge = Duration.ZERO,
+                        jsonUnescape = Duration.ZERO,
+                        htmlParse = Duration.ZERO,
+                        themeParse = Duration.ZERO,
+                        total = Duration.ZERO
+                    )
+                )
+            )
+        }
+    }
+
+    override suspend fun highlightBoth(
+        code: String,
+        language: String,
+        lightTheme: dev.hossain.neon.core.HighlightTheme,
+        darkTheme: dev.hossain.neon.core.HighlightTheme,
+    ): Result<ThemedHighlightResult> {
+        val d = delegate
+        return if (d != null) {
+            d.highlightBoth(code, language, lightTheme, darkTheme)
+        } else {
+            val fallback = HighlightResult(
+                tokens = listOf(HighlightToken(text = code)),
+                language = language,
+                timings = HighlightTimings(
+                    jsBridge = Duration.ZERO,
+                    jsonUnescape = Duration.ZERO,
+                    htmlParse = Duration.ZERO,
+                    themeParse = Duration.ZERO,
+                    total = Duration.ZERO
+                )
+            )
+            Result.success(ThemedHighlightResult(fallback, fallback))
+        }
+    }
+
+    override suspend fun autoDetectLanguage(code: String): Result<String> {
+        return delegate?.autoDetectLanguage(code) ?: Result.success("plaintext")
+    }
+
+    override suspend fun listLanguages(): List<HighlightLanguageInfo> {
+        return delegate?.listLanguages() ?: emptyList()
+    }
+
+    override fun close() {
+        delegate?.close()
+        delegate = null
+    }
+}

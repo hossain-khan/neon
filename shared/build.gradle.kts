@@ -51,6 +51,11 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
         }
         commonMain.dependencies {
+            api(projects.core)
+            api(projects.ui)
+            api(projects.engineHighlightjs)
+            implementation(projects.engineShikiNetwork)
+
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
