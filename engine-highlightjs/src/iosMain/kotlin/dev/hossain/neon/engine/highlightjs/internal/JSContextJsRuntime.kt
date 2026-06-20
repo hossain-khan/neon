@@ -14,26 +14,10 @@ internal actual class JsRuntime actual constructor() : AutoCloseable {
         withContext(Dispatchers.Default) {
             try {
                 val ctx = JSContext()
-                // Extract scripts from the merged htmlContent
-                val scripts = mutableListOf<String>()
-                var start = 0
-                while (true) {
-                    val s = htmlContent.indexOf("<script>", start)
-                    if (s == -1) break
-                    val e = htmlContent.indexOf("</script>", s)
-                    if (e == -1) break
-                    scripts.add(htmlContent.substring(s + 8, e))
-                    start = e + 9
-                }
-
-                // If no scripts were extracted, it might be the unmerged bridge.html.
-                // In that case, we should run a basic mock or load.
-                // Since our commonMain merges them, scripts will have both highlight.min.js and the bridge functions.
-                for (script in scripts) {
+                for (script in extractInlineScripts(htmlContent)) {
                     ctx.evaluateScript(script)
                 }
 
-                // Mock DOM APIs if highlightElement is called, although we will call hljs.highlight directly
                 ctx.evaluateScript("""
                     var document = {
                         getElementById: function(id) {

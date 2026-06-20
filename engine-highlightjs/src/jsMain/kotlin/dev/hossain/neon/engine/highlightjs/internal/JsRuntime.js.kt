@@ -2,7 +2,7 @@ package dev.hossain.neon.engine.highlightjs.internal
 
 internal actual class JsRuntime actual constructor() : AutoCloseable {
     actual suspend fun initialize(htmlContent: String) {
-        // highlight.js is loaded dynamically or already loaded in the page
+        installInlineScripts(htmlContent)
     }
 
     actual suspend fun evaluate(script: String): String {
@@ -15,4 +15,10 @@ internal actual class JsRuntime actual constructor() : AutoCloseable {
     }
 
     actual override fun close() {}
+}
+
+private fun installInlineScripts(htmlContent: String) {
+    extractInlineScripts(htmlContent).forEach { inlineScript ->
+        js("eval(inlineScript)")
+    }
 }
