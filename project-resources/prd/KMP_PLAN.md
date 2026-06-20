@@ -1409,7 +1409,17 @@ Files to port from `compose-highlight` to `neon`:
 
 7. **Hex Color Strings**: Colors in `HighlightToken` are hex strings (e.g., `"#FF0000"`) rather than Compose `Color` objects, keeping `core` UI-framework agnostic.
 
-## 16. Open Questions and Risks
+## 16. Reference Implementations
+
+When implementing engines, refer to these existing projects for working examples:
+
+| Project | URL | Relevance |
+|---------|-----|-----------|
+| **Android Syntax Highlighter (Compose)** | https://github.com/hossain-khan/android-syntax-highlighter-compose | Comparison app with working implementations of all three engines: compose-highlight (Highlight.js/WebView), kotlin-textmate (TextMate), and Shiki Token Service (network). Use as reference for engine integration patterns, theme handling, and performance measurement. |
+| **compose-highlight** | https://github.com/hossain-khan/android-compose-highlight | The existing Android-only Highlight.js library being migrated. Source of truth for the WebView-based engine, CSS theme parsing, HTML-to-token conversion, and all UI composables. |
+| **kotlin-textmate** | https://github.com/ivan-magda/kotlin-textmate | Kotlin port of TextMate grammar engine. Reference for grammar loading, tokenization pipeline, and theme application. Must verify KMP target support before adopting. |
+
+## 17. Open Questions and Risks
 
 ### Risks
 
