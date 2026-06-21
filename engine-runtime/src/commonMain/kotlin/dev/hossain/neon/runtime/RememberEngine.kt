@@ -16,14 +16,56 @@ public fun <C : EngineConfig> rememberEngine(
     provider: HighlightEngineProvider<C>,
     config: C,
 ): HighlightEngine {
-    val delegatingEngine = remember(provider, config) { ManagedHighlightEngine(provider.descriptor.id.value) }
-    LaunchedEffect(provider, config) {
+    return rememberManagedEngine(
+        engineKey = config,
+        providerId = provider.descriptor.id.value,
+        loadEngine = { provider.createTyped(config) },
+    )
+}
+
+public data class HighlightEngineSelection(
+    val engineId: HighlightEngineId,
+    val config: EngineConfig,
+)
+
+@Composable
+public fun rememberEngine(
+    registry: HighlightEngineRegistry,
+    selection: HighlightEngineSelection,
+): HighlightEngine {
+    val provider = remember(registry, selection.engineId) { registry.requireProvider(selection.engineId) }
+    return rememberManagedEngine(
+        engineKey = selection,
+        providerId = provider.descriptor.id.value,
+        loadEngine = { registry.createEngine(selection) },
+    )
+}
+
+@Composable
+public fun rememberEngine(
+    registry: HighlightEngineRegistry,
+    engineId: HighlightEngineId,
+    configResolver: (HighlightEngineId) -> EngineConfig,
+): HighlightEngine {
+    return rememberEngine(
+        registry = registry,
+        selection = registry.selection(engineId, configResolver(engineId)),
+    )
+}
+
+@Composable
+private fun rememberManagedEngine(
+    engineKey: Any?,
+    providerId: String,
+    loadEngine: suspend () -> HighlightEngine,
+): HighlightEngine {
+    val delegatingEngine = remember(providerId, engineKey) { ManagedHighlightEngine(providerId) }
+    LaunchedEffect(providerId, engineKey) {
         try {
-            val engine = provider.createTyped(config)
-            delegatingEngine.setDelegate(engine)
+            delegatingEngine.setDelegate(loadEngine())
         } catch (e: Exception) {
             val failure = e as? HighlightException
-                ?: HighlightException.EngineInitializationFailed(provider.descriptor.id.value, e)
+                ?: HighlightException.EngineInitializationFailed(providerId, e)
             delegatingEngine.setFailure(failure)
         }
     }
@@ -33,35 +75,6 @@ public fun <C : EngineConfig> rememberEngine(
         }
     }
     return delegatingEngine
-}
-
-public data class RegisteredEngineSelection(
-    val engineId: HighlightEngineId,
-    val config: EngineConfig,
-)
-
-@Composable
-public fun rememberRegisteredEngine(
-    registry: HighlightEngineRegistry,
-    selection: RegisteredEngineSelection,
-): HighlightEngine {
-    val provider = remember(registry, selection.engineId) { registry.requireProvider(selection.engineId) }
-    return rememberEngine(provider, selection.config)
-}
-
-@Composable
-public fun rememberRegisteredEngine(
-    registry: HighlightEngineRegistry,
-    engineId: HighlightEngineId,
-    configResolver: (HighlightEngineId) -> EngineConfig,
-): HighlightEngine {
-    return rememberRegisteredEngine(
-        registry = registry,
-        selection = RegisteredEngineSelection(
-            engineId = engineId,
-            config = configResolver(engineId),
-        ),
-    )
 }
 
 @Composable
@@ -69,21 +82,9 @@ private fun rememberEngine(
     provider: AnyHighlightEngineProvider,
     config: EngineConfig,
 ): HighlightEngine {
-    val delegatingEngine = remember(provider, config) { ManagedHighlightEngine(provider.descriptor.id.value) }
-    LaunchedEffect(provider, config) {
-        try {
-            val engine = provider.create(config)
-            delegatingEngine.setDelegate(engine)
-        } catch (e: Exception) {
-            val failure = e as? HighlightException
-                ?: HighlightException.EngineInitializationFailed(provider.descriptor.id.value, e)
-            delegatingEngine.setFailure(failure)
-        }
-    }
-    DisposableEffect(delegatingEngine) {
-        onDispose {
-            delegatingEngine.close()
-        }
-    }
-    return delegatingEngine
+    return rememberManagedEngine(
+        engineKey = config,
+        providerId = provider.descriptor.id.value,
+        loadEngine = { provider.create(config) },
+    )
 }

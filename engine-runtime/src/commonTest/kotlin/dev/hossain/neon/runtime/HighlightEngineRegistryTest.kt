@@ -53,6 +53,51 @@ class HighlightEngineRegistryTest {
     }
 
     @Test
+    fun createsSelectionFromRegisteredProvider() {
+        val registry = HighlightEngineRegistry.of(FakeProvider)
+
+        val selection = registry.selection(FakeProvider.descriptor.id, FakeConfig())
+
+        assertEquals(FakeProvider.descriptor.id, selection.engineId)
+    }
+
+    @Test
+    fun exposesThemeCatalogThroughRegistryHelpers() {
+        val registry = HighlightEngineRegistry.of(FakeProvider)
+
+        assertEquals("fake-dark", registry.defaultThemeId(FakeProvider.descriptor.id))
+        assertEquals(
+            listOf(HighlightThemeDescriptor(id = "fake-dark", displayName = "Fake Dark", isDark = true)),
+            registry.themeDescriptors(FakeProvider.descriptor.id),
+        )
+    }
+
+    @Test
+    fun createsEngineFromSelection() {
+        val registry = HighlightEngineRegistry.of(FakeProvider)
+        val selection = registry.selection(FakeProvider.descriptor.id, FakeConfig())
+
+        val engine = runSuspend { registry.createEngine(selection) }
+
+        assertSame(FakeEngine, engine)
+    }
+
+    @Test
+    fun loadsThemeFromSelectionProvider() {
+        val registry = HighlightEngineRegistry.of(FakeProvider)
+
+        val theme = runSuspend {
+            registry.loadTheme(
+                engineId = FakeProvider.descriptor.id,
+                themeId = "fake-dark",
+            )
+        }
+
+        assertEquals("fake-dark", theme.name)
+        assertTrue(theme.isDark)
+    }
+
+    @Test
     fun managedEngineReplacesAndClosesPreviousDelegate() {
         val managed = ManagedHighlightEngine("managed")
         val first = ClosableFakeEngine("first")
