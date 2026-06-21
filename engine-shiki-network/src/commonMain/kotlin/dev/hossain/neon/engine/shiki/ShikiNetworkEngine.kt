@@ -1,6 +1,7 @@
 package dev.hossain.neon.engine.shiki
 
 import dev.hossain.neon.core.*
+import dev.hossain.neon.engine.shiki.internal.createDefaultShikiHttpClient
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.*
@@ -24,7 +25,7 @@ public class ShikiNetworkEngine(
 
     override val name: String = "shiki-network"
 
-    private val client = (config.httpClient ?: HttpClient()).config {
+    private val client = (config.httpClient ?: createDefaultShikiHttpClient()).config {
         install(ContentNegotiation) {
             json(Json {
                 ignoreUnknownKeys = true
@@ -53,7 +54,7 @@ public class ShikiNetworkEngine(
         try {
             val response: LanguagesResponse = client.get("${config.serviceUrl}/languages").body()
             _supportedLanguages = response.languages.toSet()
-        } catch (e: Exception) {
+        } catch (_: Throwable) {
             _supportedLanguages = emptySet()
         }
     }
