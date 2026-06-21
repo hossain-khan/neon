@@ -7,8 +7,11 @@ import dev.hossain.neon.core.HighlightEngineId
 public class HighlightEngineRegistry private constructor(
     private val providersById: Map<HighlightEngineId, AnyHighlightEngineProvider>,
 ) {
+    public val providers: List<AnyHighlightEngineProvider>
+        get() = providersById.values.toList()
+
     public val descriptors: List<HighlightEngineDescriptor>
-        get() = providersById.values.map { it.descriptor }
+        get() = providers.map { it.descriptor }
 
     public fun contains(engineId: HighlightEngineId): Boolean = providersById.containsKey(engineId)
 

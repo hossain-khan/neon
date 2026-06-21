@@ -4,8 +4,8 @@ import android.os.Handler
 import android.os.Looper
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.content.Context
 import dev.hossain.neon.core.HighlightException
-import dev.hossain.neon.engine.highlightjs.NeonAndroidContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -13,13 +13,20 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-internal actual class JsRuntime actual constructor() : AutoCloseable {
+internal actual class JsRuntime actual constructor(
+    platformContext: Any?,
+) : AutoCloseable {
+    private val context: Context? = platformContext as? Context
     private var webView: WebView? = null
     private val readyDeferred = CompletableDeferred<WebView>()
 
     actual suspend fun initialize(htmlContent: String) {
         withContext(Dispatchers.Main) {
-            val context = NeonAndroidContext.applicationContext
+            val context = context ?: throw HighlightException.UnsupportedPlatform(
+                engine = "highlightjs",
+                platform = "android",
+                details = "Create HljsConfig with HljsConfig.android(context) before creating the engine."
+            )
             val wv = try {
                 WebView(context).apply {
                     settings.javaScriptEnabled = true

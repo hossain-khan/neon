@@ -19,18 +19,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.hossain.neon.core.AnyHighlightEngineProvider
+import dev.hossain.neon.core.EngineConfig
 import dev.hossain.neon.core.HighlightEngineDescriptor
 import dev.hossain.neon.core.HighlightEngineId
+import dev.hossain.neon.core.HighlightThemeDescriptor
 import dev.hossain.neon.core.HighlightTimings
 import dev.hossain.neon.core.HighlightTheme
-import dev.hossain.neon.engine.highlightjs.BuiltinHljsTheme
 import dev.hossain.neon.engine.highlightjs.HljsConfig
 import dev.hossain.neon.engine.highlightjs.HljsEngineProvider
-import dev.hossain.neon.engine.highlightjs.HljsTheme
 import dev.hossain.neon.engine.shiki.ShikiNetworkConfig
 import dev.hossain.neon.engine.shiki.ShikiNetworkEngineProvider
-import dev.hossain.neon.engine.shiki.ShikiTheme
 import dev.hossain.neon.runtime.HighlightEngineRegistry
+import dev.hossain.neon.runtime.RegisteredEngineSelection
 import dev.hossain.neon.runtime.rememberRegisteredEngine
 import dev.hossain.neon.ui.HighlightEngineProvider
 import dev.hossain.neon.ui.SyntaxHighlightedCode
@@ -132,12 +133,13 @@ private val PredefinedSamples = mapOf(
 
 private val HljsEngineId = HljsEngineProvider.descriptor.id
 private val ShikiEngineId = ShikiNetworkEngineProvider.descriptor.id
-private val HighlightJsThemes = listOf("Atom One Dark", "Atom One Light", "Tomorrow Night", "Tomorrow")
-private val ShikiThemes = listOf("github-dark", "github-light", "one-dark-pro", "dracula", "min-light")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun App() {
+fun App(
+    defaultHljsConfig: HljsConfig = HljsConfig.Default,
+    defaultShikiConfig: ShikiNetworkConfig = ShikiNetworkConfig.Default,
+) {
     MaterialTheme(colorScheme = darkColorScheme()) {
         val engineRegistry = remember {
             HighlightEngineRegistry.of(
@@ -148,40 +150,38 @@ fun App() {
         val engineDescriptors = remember(engineRegistry) { engineRegistry.descriptors }
 
         var selectedEngineId by remember { mutableStateOf(HljsEngineId) }
+        val selectedProvider = remember(engineRegistry, selectedEngineId) {
+            engineRegistry.requireProvider(selectedEngineId)
+        }
+        var selectedEngine by remember(selectedEngineId, defaultHljsConfig, defaultShikiConfig) {
+            mutableStateOf(
+                RegisteredEngineSelection(
+                    engineId = selectedEngineId,
+                    config = defaultConfigFor(
+                        engineId = selectedEngineId,
+                        defaultHljsConfig = defaultHljsConfig,
+                        defaultShikiConfig = defaultShikiConfig,
+                    ),
+                )
+            )
+        }
         val currentEngine = rememberRegisteredEngine(
             registry = engineRegistry,
-            engineId = selectedEngineId,
-        ) { engineId ->
-            when (engineId) {
-                HljsEngineId -> HljsConfig.Default
-                ShikiEngineId -> ShikiNetworkConfig.Default
-                else -> error("No config available for engine ${engineId.value}")
-            }
-        }
+            selection = selectedEngine,
+        )
 
         var selectedLanguage by remember { mutableStateOf("kotlin") }
         var code by remember { mutableStateOf(PredefinedSamples["kotlin"] ?: "") }
         var showLineNumbers by remember { mutableStateOf(true) }
 
-        var selectedThemeName by remember { mutableStateOf(defaultThemeNameFor(HljsEngineId)) }
+        var selectedThemeId by remember { mutableStateOf(defaultThemeIdFor(selectedProvider)) }
 
         var currentTheme: HighlightTheme? by remember { mutableStateOf(null) }
         var isThemeLoading by remember { mutableStateOf(false) }
 
-        LaunchedEffect(selectedEngineId, selectedThemeName) {
+        LaunchedEffect(selectedProvider, selectedThemeId) {
             isThemeLoading = true
-            currentTheme = if (isHighlightJsEngine(selectedEngineId)) {
-                val builtinEnum = when (selectedThemeName) {
-                    "Atom One Dark" -> BuiltinHljsTheme.ATOM_ONE_DARK
-                    "Atom One Light" -> BuiltinHljsTheme.ATOM_ONE_LIGHT
-                    "Tomorrow Night" -> BuiltinHljsTheme.TOMORROW_NIGHT
-                    "Tomorrow" -> BuiltinHljsTheme.TOMORROW
-                    else -> BuiltinHljsTheme.ATOM_ONE_DARK
-                }
-                HljsTheme.builtin(builtinEnum)
-            } else {
-                ShikiTheme.builtin(selectedThemeName)
-            }
+            currentTheme = selectedProvider.themeCatalog?.loadTheme(selectedThemeId)
             isThemeLoading = false
         }
 
@@ -238,10 +238,19 @@ fun App() {
                                     selectedEngineId = selectedEngineId,
                                     onEngineSelected = { engineId ->
                                         selectedEngineId = engineId
-                                        selectedThemeName = defaultThemeNameFor(engineId)
+                                        selectedEngine = RegisteredEngineSelection(
+                                            engineId = engineId,
+                                            config = defaultConfigFor(
+                                                engineId = engineId,
+                                                defaultHljsConfig = defaultHljsConfig,
+                                                defaultShikiConfig = defaultShikiConfig,
+                                            ),
+                                        )
+                                        selectedThemeId = defaultThemeIdFor(engineRegistry.requireProvider(engineId))
                                     },
-                                    selectedThemeName = selectedThemeName,
-                                    onThemeSelected = { selectedThemeName = it },
+                                    selectedThemeId = selectedThemeId,
+                                    onThemeSelected = { selectedThemeId = it },
+                                    themeDescriptors = themeDescriptorsFor(selectedProvider),
                                     selectedLanguage = selectedLanguage,
                                     onLanguageSelected = { lang ->
                                         selectedLanguage = lang
@@ -302,10 +311,19 @@ fun App() {
                                     selectedEngineId = selectedEngineId,
                                     onEngineSelected = { engineId ->
                                         selectedEngineId = engineId
-                                        selectedThemeName = defaultThemeNameFor(engineId)
+                                        selectedEngine = RegisteredEngineSelection(
+                                            engineId = engineId,
+                                            config = defaultConfigFor(
+                                                engineId = engineId,
+                                                defaultHljsConfig = defaultHljsConfig,
+                                                defaultShikiConfig = defaultShikiConfig,
+                                            ),
+                                        )
+                                        selectedThemeId = defaultThemeIdFor(engineRegistry.requireProvider(engineId))
                                     },
-                                    selectedThemeName = selectedThemeName,
-                                    onThemeSelected = { selectedThemeName = it },
+                                    selectedThemeId = selectedThemeId,
+                                    onThemeSelected = { selectedThemeId = it },
+                                    themeDescriptors = themeDescriptorsFor(selectedProvider),
                                     selectedLanguage = selectedLanguage,
                                     onLanguageSelected = { lang ->
                                         selectedLanguage = lang
@@ -351,8 +369,9 @@ private fun ControlPanelContent(
     engineDescriptors: List<HighlightEngineDescriptor>,
     selectedEngineId: HighlightEngineId,
     onEngineSelected: (HighlightEngineId) -> Unit,
-    selectedThemeName: String,
+    selectedThemeId: String,
     onThemeSelected: (String) -> Unit,
+    themeDescriptors: List<HighlightThemeDescriptor>,
     selectedLanguage: String,
     onLanguageSelected: (String) -> Unit,
     showLineNumbers: Boolean,
@@ -397,8 +416,7 @@ private fun ControlPanelContent(
 
     Text("Theme Selection", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        val themes = themeNamesFor(selectedEngineId)
-        themes.forEach { theme ->
+        themeDescriptors.forEach { theme ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
@@ -406,20 +424,20 @@ private fun ControlPanelContent(
                     .clip(RoundedCornerShape(8.dp))
                     .border(
                         1.dp,
-                        if (selectedThemeName == theme) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        if (selectedThemeId == theme.id) MaterialTheme.colorScheme.primary else Color.Transparent,
                         RoundedCornerShape(8.dp)
                     )
                     .background(
-                        if (selectedThemeName == theme) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent
+                        if (selectedThemeId == theme.id) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent
                     )
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 RadioButton(
-                    selected = selectedThemeName == theme,
-                    onClick = { onThemeSelected(theme) }
+                    selected = selectedThemeId == theme.id,
+                    onClick = { onThemeSelected(theme.id) }
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(theme, style = MaterialTheme.typography.bodyMedium)
+                Text(theme.displayName, style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
@@ -436,7 +454,7 @@ private fun ControlPanelContent(
         Text("Show Line Gutters", style = MaterialTheme.typography.bodyMedium)
     }
 
-    Divider()
+    HorizontalDivider()
 
     Text("Performance Metric", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
 
@@ -470,7 +488,7 @@ private fun ControlPanelContent(
                 label = "HTML / Token Parse",
                 value = "${timings.htmlParse.inWholeMicroseconds / 1000.0} ms"
             )
-            Divider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f))
             MetricRow(
                 label = "Total Processing Time",
                 value = "${timings.total.inWholeMicroseconds / 1000.0} ms",
@@ -486,14 +504,25 @@ private fun ControlPanelContent(
     }
 }
 
-private fun isHighlightJsEngine(engineId: HighlightEngineId): Boolean = engineId == HljsEngineId
-
-private fun defaultThemeNameFor(engineId: HighlightEngineId): String {
-    return if (isHighlightJsEngine(engineId)) HighlightJsThemes.first() else ShikiThemes.first()
+private fun defaultConfigFor(
+    engineId: HighlightEngineId,
+    defaultHljsConfig: HljsConfig,
+    defaultShikiConfig: ShikiNetworkConfig,
+): EngineConfig {
+    return when (engineId) {
+        HljsEngineId -> defaultHljsConfig
+        ShikiEngineId -> defaultShikiConfig
+        else -> error("No config available for engine ${engineId.value}")
+    }
 }
 
-private fun themeNamesFor(engineId: HighlightEngineId): List<String> {
-    return if (isHighlightJsEngine(engineId)) HighlightJsThemes else ShikiThemes
+private fun defaultThemeIdFor(provider: AnyHighlightEngineProvider): String {
+    return provider.themeCatalog?.defaultThemeId
+        ?: error("Provider ${provider.descriptor.id.value} does not expose a theme catalog")
+}
+
+private fun themeDescriptorsFor(provider: AnyHighlightEngineProvider): List<HighlightThemeDescriptor> {
+    return provider.themeCatalog?.themes.orEmpty()
 }
 
 @Composable
