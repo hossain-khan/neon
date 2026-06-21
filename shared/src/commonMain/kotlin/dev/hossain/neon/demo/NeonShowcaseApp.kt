@@ -1,4 +1,4 @@
-package dev.hossain.neon
+package dev.hossain.neon.demo
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,7 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.hossain.neon.core.AnyHighlightEngineProvider
 import dev.hossain.neon.core.EngineConfig
 import dev.hossain.neon.core.HighlightEngineDescriptor
 import dev.hossain.neon.core.HighlightEngineId
@@ -31,8 +30,7 @@ import dev.hossain.neon.engine.highlightjs.HljsEngineProvider
 import dev.hossain.neon.engine.shiki.ShikiNetworkConfig
 import dev.hossain.neon.engine.shiki.ShikiNetworkEngineProvider
 import dev.hossain.neon.runtime.HighlightEngineRegistry
-import dev.hossain.neon.runtime.RegisteredEngineSelection
-import dev.hossain.neon.runtime.rememberRegisteredEngine
+import dev.hossain.neon.runtime.rememberEngine
 import dev.hossain.neon.ui.HighlightEngineProvider
 import dev.hossain.neon.ui.SyntaxHighlightedCode
 
@@ -136,7 +134,7 @@ private val ShikiEngineId = ShikiNetworkEngineProvider.descriptor.id
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun App(
+fun NeonShowcaseApp(
     defaultHljsConfig: HljsConfig = HljsConfig.Default,
     defaultShikiConfig: ShikiNetworkConfig = ShikiNetworkConfig.Default,
 ) {
@@ -150,12 +148,9 @@ fun App(
         val engineDescriptors = remember(engineRegistry) { engineRegistry.descriptors }
 
         var selectedEngineId by remember { mutableStateOf(HljsEngineId) }
-        val selectedProvider = remember(engineRegistry, selectedEngineId) {
-            engineRegistry.requireProvider(selectedEngineId)
-        }
         var selectedEngine by remember(selectedEngineId, defaultHljsConfig, defaultShikiConfig) {
             mutableStateOf(
-                RegisteredEngineSelection(
+                engineRegistry.selection(
                     engineId = selectedEngineId,
                     config = defaultConfigFor(
                         engineId = selectedEngineId,
@@ -165,7 +160,7 @@ fun App(
                 )
             )
         }
-        val currentEngine = rememberRegisteredEngine(
+        val currentEngine = rememberEngine(
             registry = engineRegistry,
             selection = selectedEngine,
         )
@@ -174,14 +169,16 @@ fun App(
         var code by remember { mutableStateOf(PredefinedSamples["kotlin"] ?: "") }
         var showLineNumbers by remember { mutableStateOf(true) }
 
-        var selectedThemeId by remember { mutableStateOf(defaultThemeIdFor(selectedProvider)) }
+        var selectedThemeId by remember {
+            mutableStateOf(requireDefaultThemeId(engineRegistry, selectedEngineId))
+        }
 
         var currentTheme: HighlightTheme? by remember { mutableStateOf(null) }
         var isThemeLoading by remember { mutableStateOf(false) }
 
-        LaunchedEffect(selectedProvider, selectedThemeId) {
+        LaunchedEffect(engineRegistry, selectedEngineId, selectedThemeId) {
             isThemeLoading = true
-            currentTheme = selectedProvider.themeCatalog?.loadTheme(selectedThemeId)
+            currentTheme = engineRegistry.loadTheme(selectedEngineId, selectedThemeId)
             isThemeLoading = false
         }
 
@@ -238,7 +235,7 @@ fun App(
                                     selectedEngineId = selectedEngineId,
                                     onEngineSelected = { engineId ->
                                         selectedEngineId = engineId
-                                        selectedEngine = RegisteredEngineSelection(
+                                        selectedEngine = engineRegistry.selection(
                                             engineId = engineId,
                                             config = defaultConfigFor(
                                                 engineId = engineId,
@@ -246,11 +243,11 @@ fun App(
                                                 defaultShikiConfig = defaultShikiConfig,
                                             ),
                                         )
-                                        selectedThemeId = defaultThemeIdFor(engineRegistry.requireProvider(engineId))
+                                        selectedThemeId = requireDefaultThemeId(engineRegistry, engineId)
                                     },
                                     selectedThemeId = selectedThemeId,
                                     onThemeSelected = { selectedThemeId = it },
-                                    themeDescriptors = themeDescriptorsFor(selectedProvider),
+                                    themeDescriptors = engineRegistry.themeDescriptors(selectedEngineId),
                                     selectedLanguage = selectedLanguage,
                                     onLanguageSelected = { lang ->
                                         selectedLanguage = lang
@@ -311,7 +308,7 @@ fun App(
                                     selectedEngineId = selectedEngineId,
                                     onEngineSelected = { engineId ->
                                         selectedEngineId = engineId
-                                        selectedEngine = RegisteredEngineSelection(
+                                        selectedEngine = engineRegistry.selection(
                                             engineId = engineId,
                                             config = defaultConfigFor(
                                                 engineId = engineId,
@@ -319,11 +316,11 @@ fun App(
                                                 defaultShikiConfig = defaultShikiConfig,
                                             ),
                                         )
-                                        selectedThemeId = defaultThemeIdFor(engineRegistry.requireProvider(engineId))
+                                        selectedThemeId = requireDefaultThemeId(engineRegistry, engineId)
                                     },
                                     selectedThemeId = selectedThemeId,
                                     onThemeSelected = { selectedThemeId = it },
-                                    themeDescriptors = themeDescriptorsFor(selectedProvider),
+                                    themeDescriptors = engineRegistry.themeDescriptors(selectedEngineId),
                                     selectedLanguage = selectedLanguage,
                                     onLanguageSelected = { lang ->
                                         selectedLanguage = lang
@@ -516,13 +513,12 @@ private fun defaultConfigFor(
     }
 }
 
-private fun defaultThemeIdFor(provider: AnyHighlightEngineProvider): String {
-    return provider.themeCatalog?.defaultThemeId
-        ?: error("Provider ${provider.descriptor.id.value} does not expose a theme catalog")
-}
-
-private fun themeDescriptorsFor(provider: AnyHighlightEngineProvider): List<HighlightThemeDescriptor> {
-    return provider.themeCatalog?.themes.orEmpty()
+private fun requireDefaultThemeId(
+    registry: HighlightEngineRegistry,
+    engineId: HighlightEngineId,
+): String {
+    return registry.defaultThemeId(engineId)
+        ?: error("Engine ${engineId.value} does not expose a theme catalog")
 }
 
 @Composable

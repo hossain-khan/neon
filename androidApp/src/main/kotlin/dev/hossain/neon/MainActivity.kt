@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
+import dev.hossain.neon.demo.NeonShowcaseApp
 import dev.hossain.neon.engine.highlightjs.HljsConfig
 import dev.hossain.neon.engine.highlightjs.android
 
@@ -15,7 +16,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            App(
+            NeonShowcaseApp(
                 defaultHljsConfig = HljsConfig.android(applicationContext),
             )
         }
@@ -25,5 +26,5 @@ class MainActivity : ComponentActivity() {
 @Preview
 @Composable
 fun AppAndroidPreview() {
-    App()
+    NeonShowcaseApp()
 }
