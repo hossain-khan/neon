@@ -7,7 +7,9 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-internal actual class JsRuntime actual constructor() : AutoCloseable {
+internal actual class JsRuntime actual constructor(
+    platformContext: Any?,
+) : AutoCloseable {
     private var engine: ScriptEngine? = null
     private val readyDeferred = CompletableDeferred<ScriptEngine>()
 

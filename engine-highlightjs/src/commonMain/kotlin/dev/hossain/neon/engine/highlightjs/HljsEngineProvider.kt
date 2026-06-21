@@ -7,6 +7,9 @@ import dev.hossain.neon.core.HighlightEngineCapabilities
 import dev.hossain.neon.core.HighlightEngineDescriptor
 import dev.hossain.neon.core.HighlightEngineId
 import dev.hossain.neon.core.HighlightException
+import dev.hossain.neon.core.HighlightTarget
+import dev.hossain.neon.core.HighlightThemeCatalog
+import dev.hossain.neon.core.HighlightThemeDescriptor
 import dev.hossain.neon.engine.highlightjs.internal.JsRuntime
 import neonproject.engine_highlightjs.generated.resources.Res
 import org.jetbrains.compose.resources.ExperimentalResourceApi
@@ -19,7 +22,31 @@ public object HljsEngineProvider : BaseHighlightEngineProvider<HljsConfig>() {
             supportsAutoDetect = true,
             supportsDualTheme = true,
         ),
+        supportedTargets = setOf(
+            HighlightTarget.ANDROID,
+            HighlightTarget.IOS,
+            HighlightTarget.DESKTOP,
+            HighlightTarget.JS,
+            HighlightTarget.WASM_JS,
+        ),
     )
+
+    override val themeCatalog: HighlightThemeCatalog = object : HighlightThemeCatalog {
+        override val themes: List<HighlightThemeDescriptor> = BuiltinHljsTheme.entries.map { theme ->
+            HighlightThemeDescriptor(
+                id = theme.name,
+                displayName = theme.themeName,
+                isDark = theme.isDark,
+            )
+        }
+
+        override val defaultThemeId: String = BuiltinHljsTheme.ATOM_ONE_DARK.name
+
+        override suspend fun loadTheme(themeId: String) : HljsTheme {
+            val builtinTheme = BuiltinHljsTheme.valueOf(themeId)
+            return HljsTheme.builtin(builtinTheme)
+        }
+    }
 
     override fun isAvailable(): Boolean = true
 
@@ -27,7 +54,7 @@ public object HljsEngineProvider : BaseHighlightEngineProvider<HljsConfig>() {
 
     @OptIn(ExperimentalResourceApi::class)
     override suspend fun createTyped(config: HljsConfig): HighlightEngine {
-        val runtime = JsRuntime()
+        val runtime = JsRuntime(config.platformContext)
         try {
             val bridgeBytes = Res.readBytes("files/bridge.html")
             val jsBytes = Res.readBytes("files/highlight.min.js")

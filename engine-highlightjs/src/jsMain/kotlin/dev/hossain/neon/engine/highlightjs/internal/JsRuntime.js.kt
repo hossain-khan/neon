@@ -1,6 +1,8 @@
 package dev.hossain.neon.engine.highlightjs.internal
 
-internal actual class JsRuntime actual constructor() : AutoCloseable {
+internal actual class JsRuntime actual constructor(
+    platformContext: Any?,
+) : AutoCloseable {
     actual suspend fun initialize(htmlContent: String) {
         installInlineScripts(htmlContent)
     }
